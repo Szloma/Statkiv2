@@ -41,60 +41,78 @@ func customBoard() ([]string, error) {
 }
 
 func Fire(coord string) (string, error) {
-	client := &DefaultHTTPClient{}
 
-	GameBoard := map[string]interface{}{
-		"coord": coord,
-	}
-	b, err := json.Marshal(GameBoard)
-	if err != nil {
-		fmt.Println(err)
-		return "", fmt.Errorf("failed to marshall: ", err)
-	}
-	jsonBody := []byte(b)
-	fmt.Println("body////")
-	fmt.Printf((string(jsonBody)))
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+		client := &DefaultHTTPClient{}
 
-	getHeaders := map[string]string{
-		"X-Auth-Token": gameProperties.Token,
-	}
+		GameBoard := map[string]interface{}{
+			"coord": coord,
+		}
+		b, err := json.Marshal(GameBoard)
+		if err != nil {
+			fmt.Println(err)
+			return "", fmt.Errorf("failed to marshall: ", err)
+		}
+		jsonBody := []byte(b)
+		fmt.Println("body////")
+		fmt.Printf((string(jsonBody)))
 
-	postResponse, err := client.Post("https://go-pjatk-server.fly.dev/api/game/fire", "application/json", jsonBody, getHeaders)
-	if err != nil {
-		fmt.Println("POST request failed", err)
-		fmt.Errorf("post request failed", err)
-	}
-	if postResponse.StatusCode != http.StatusOK {
-		fmt.Printf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
-		fmt.Errorf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
-	}
+		getHeaders := map[string]string{
+			"X-Auth-Token": gameProperties.Token,
+		}
 
-	defer postResponse.Body.Close()
-	fmt.Println("POST ResponseBody:")
-	fmt.Println(string(postResponse.Header.Get("X-Auth-Token")))
-	token := postResponse.Header.Get("X-Auth-Token")
-	if len(token) == 0 {
-		fmt.Errorf("cannot obtain token")
-	}
-	// Reading response body
-	postResponseBody, err := io.ReadAll(postResponse.Body)
-	if err != nil {
-		// fmt.Println("Failed to read POST response body:", err)
-		fmt.Errorf("Failed to read POST response body", err)
-	}
-	fmt.Println("POST Response:")
-	fmt.Println(string(postResponseBody))
-	gameProperties.Token = token
+		postResponse, err := client.Post("https://go-pjatk-server.fly.dev/api/game/fire", "application/json", jsonBody, getHeaders)
+		if err != nil {
+			fmt.Println("POST request failed", err)
+			fmt.Errorf("post request failed", err)
+		}
+		if postResponse.StatusCode != http.StatusOK {
+			fmt.Printf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
+			fmt.Errorf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
+		}
+		if postResponse.StatusCode == http.StatusOK {
+			Loop = false
+		}
 
-	var data map[string]interface{}
+		defer postResponse.Body.Close()
+		fmt.Println("POST ResponseBody:")
+		fmt.Println(string(postResponse.Header.Get("X-Auth-Token")))
+		token := postResponse.Header.Get("X-Auth-Token")
+		if len(token) == 0 {
+			fmt.Errorf("cannot obtain token")
+		}
+		// Reading response body
+		postResponseBody, err := io.ReadAll(postResponse.Body)
+		if err != nil {
+			// fmt.Println("Failed to read POST response body:", err)
+			fmt.Errorf("Failed to read POST response body", err)
+		}
+		fmt.Println("POST Response:")
+		fmt.Println(string(postResponseBody))
+		gameProperties.Token = token
 
-	err = json.Unmarshal([]byte(postResponseBody), &data)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal response")
+		var data map[string]interface{}
+
+		err = json.Unmarshal([]byte(postResponseBody), &data)
+		if err != nil {
+			return "", fmt.Errorf("failed to unmarshal response")
+		}
+		result := fmt.Sprintf("%s", data["result"])
+		fmt.Println(result)
+
+		if no_tries == 3 {
+			Loop = false
+			return "", fmt.Errorf("couldn't perform fire request")
+		}
+		no_tries += 1
+
+		return result, fmt.Errorf("couldn't perform fire request")
+
 	}
-	result := fmt.Sprintf("%s", data["result"])
-	fmt.Println(result)
-	return result, nil
+	return "", nil
+
 }
 
 func stringToSlice(inp string) []string {
@@ -104,43 +122,61 @@ func stringToSlice(inp string) []string {
 	return s
 }
 func Board() ([]string, error) {
-	client := &DefaultHTTPClient{}
 
-	getHeaders := map[string]string{
-		"X-Auth-Token": gameProperties.Token,
-	}
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+		client := &DefaultHTTPClient{}
 
-	//////
-	resp, err := client.Get("https://go-pjatk-server.fly.dev/api/game/board", getHeaders)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+		getHeaders := map[string]string{
+			"X-Auth-Token": gameProperties.Token,
+		}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+		//////
+		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/game/board", getHeaders)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
 
-		return nil, fmt.Errorf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
-	}
-	var data map[string]interface{}
+		if resp.StatusCode != http.StatusOK {
+			fmt.Printf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
 
-	err = json.Unmarshal([]byte(body), &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response")
+			return nil, fmt.Errorf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
+		}
+		if resp.StatusCode == http.StatusOK {
+			Loop = false
+		}
+		var data map[string]interface{}
+
+		err = json.Unmarshal([]byte(body), &data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response")
+		}
+		key := fmt.Sprintf("%s", data["board"])
+		result := stringToSlice(key)
+		if len(result) != 20 {
+			fmt.Printf("Not enough pieces")
+			return nil, fmt.Errorf("Not enough pieces")
+		}
+		fmt.Println("%d", len(result))
+
+		if no_tries == 3 {
+			Loop = false
+			return nil, fmt.Errorf("Couldn't retrieve board")
+		}
+		no_tries += 1
+
+		return result, nil
+
 	}
-	key := fmt.Sprintf("%s", data["board"])
-	result := stringToSlice(key)
-	if len(result) != 20 {
-		fmt.Printf("Not enough pieces")
-		return nil, fmt.Errorf("Not enough pieces")
-	}
-	fmt.Println("%d", len(result))
-	return result, nil
+	return nil, fmt.Errorf("Couldn't retrieve board")
+
 }
 
 //func Fire(coord string) (string, error)
@@ -188,83 +224,116 @@ func (c *DefaultHTTPClient) Post(url string, bodyType string, body []byte, heade
 }
 
 func InitGame() error {
-	client := &DefaultHTTPClient{}
-	getHeaders := map[string]string{
-		"accept": "application/json",
-	}
-	GameBoard := map[string]interface{}{
-		"coords":      gameProperties.Board,
-		"desc":        "Pierwsza gra",
-		"nick":        "Janusz",
-		"target_nick": "",
-		"wpbot":       true,
-	}
-	b, err := json.Marshal(GameBoard)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Errorf("failed to marshall: ", err)
-	}
-	jsonBody := []byte(b)
 
-	postResponse, err := client.Post("https://go-pjatk-server.fly.dev/api/game", "application/json", jsonBody, getHeaders)
-	if err != nil {
-		fmt.Println("POST request failed", err)
-		fmt.Errorf("post request failed", err)
-	}
-	if postResponse.StatusCode != http.StatusOK {
-		fmt.Printf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
-		fmt.Errorf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
-	}
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
 
-	defer postResponse.Body.Close()
-	fmt.Println("POST ResponseBody:")
-	fmt.Println(string(postResponse.Header.Get("X-Auth-Token")))
-	token := postResponse.Header.Get("X-Auth-Token")
-	if len(token) == 0 {
-		fmt.Errorf("cannot obtain token")
+		client := &DefaultHTTPClient{}
+		getHeaders := map[string]string{
+			"accept": "application/json",
+		}
+		GameBoard := map[string]interface{}{
+			"coords":      gameProperties.Board,
+			"desc":        "Pierwsza gra",
+			"nick":        "Janusz",
+			"target_nick": "",
+			"wpbot":       true,
+		}
+		b, err := json.Marshal(GameBoard)
+		if err != nil {
+			fmt.Println(err)
+			fmt.Errorf("failed to marshall: ", err)
+		}
+		jsonBody := []byte(b)
+
+		postResponse, err := client.Post("https://go-pjatk-server.fly.dev/api/game", "application/json", jsonBody, getHeaders)
+		if err != nil {
+			fmt.Println("POST request failed", err)
+			fmt.Errorf("post request failed", err)
+		}
+		if postResponse.StatusCode != http.StatusOK {
+			fmt.Printf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
+			fmt.Errorf("unexpected status: %d, %s", postResponse.StatusCode, postResponse.Header.Get("message"))
+		}
+		if postResponse.StatusCode == http.StatusOK {
+			Loop = false
+		}
+
+		defer postResponse.Body.Close()
+		fmt.Println("POST ResponseBody:")
+		fmt.Println(string(postResponse.Header.Get("X-Auth-Token")))
+		token := postResponse.Header.Get("X-Auth-Token")
+		if len(token) == 0 {
+			fmt.Errorf("cannot obtain token")
+		}
+		// Reading response body
+		postResponseBody, err := io.ReadAll(postResponse.Body)
+		if err != nil {
+			// fmt.Println("Failed to read POST response body:", err)
+			fmt.Errorf("Failed to read POST response body", err)
+		}
+		fmt.Println("POST Response:")
+		fmt.Println(string(postResponseBody))
+		gameProperties.Token = token
+
+		if no_tries == 3 {
+			Loop = false
+			return fmt.Errorf("couldn't initialize game")
+		}
+		no_tries += 1
 	}
-	// Reading response body
-	postResponseBody, err := io.ReadAll(postResponse.Body)
-	if err != nil {
-		// fmt.Println("Failed to read POST response body:", err)
-		fmt.Errorf("Failed to read POST response body", err)
-	}
-	fmt.Println("POST Response:")
-	fmt.Println(string(postResponseBody))
-	gameProperties.Token = token
 	return nil
+
 }
 
 func Status() (*StatusResponse, error) {
-	client := &DefaultHTTPClient{}
 
-	getHeaders := map[string]string{
-		"X-Auth-Token": gameProperties.Token,
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+
+		client := &DefaultHTTPClient{}
+
+		getHeaders := map[string]string{
+			"X-Auth-Token": gameProperties.Token,
+		}
+
+		//////
+		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/game", getHeaders)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		var data map[string]interface{}
+
+		err = json.Unmarshal([]byte(body), &data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response")
+		}
+
+		if no_tries == 3 {
+			Loop = false
+			return nil, fmt.Errorf("couldn't initialize game")
+		}
+		no_tries += 1
+
+		if resp.StatusCode == 200 {
+			Loop = false
+		}
+		return &StatusResponse{
+			StatusCode: resp.StatusCode,
+			Body:       data,
+		}, nil
+
 	}
-
-	//////
-	resp, err := client.Get("https://go-pjatk-server.fly.dev/api/game", getHeaders)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var data map[string]interface{}
-
-	err = json.Unmarshal([]byte(body), &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response")
-	}
-
-	return &StatusResponse{
-		StatusCode: resp.StatusCode,
-		Body:       data,
-	}, nil
+	return nil, fmt.Errorf("couldn't get status")
 
 }
 func getCoords() (string, error) {
@@ -319,20 +388,21 @@ func main() {
 	//
 	gameLoop := true
 	for ok := true; ok; ok = gameLoop {
-		time.Sleep(1 * time.Second)
+
 		GameStatus, err = Status()
 		if err != nil {
 			panic(err)
 		}
 		if GameStatus.Body["should_fire"] == true {
 			coord, _ := getCoords()
-
-			res := fmt.Sprint("%s", coord)
-			fmt.Printf(res)
 			Fire(coord)
-			fmt.Printf("hassha")
 			fmt.Println(GameStatus.Body["timer"])
 		}
+
+		fmt.Println(GameStatus.Body)
+		//game status znika za 2 wykonaniem z jakiegos powodu
+
+		time.Sleep(1 * time.Second)
 
 	}
 
