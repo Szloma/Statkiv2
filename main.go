@@ -287,6 +287,55 @@ func InitGame() error {
 
 }
 
+func getLobby() (*StatusResponse, error) {
+
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+
+		client := &DefaultHTTPClient{}
+
+		getHeaders := map[string]string{
+			"X-Auth-Token": gameProperties.Token,
+		}
+
+		//////
+		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/lobby", getHeaders)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		var data map[string]interface{}
+
+		err = json.Unmarshal([]byte(body), &data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response")
+		}
+
+		if no_tries == 3 {
+			Loop = false
+			return nil, fmt.Errorf("couldn't retrieve lobby data")
+		}
+		no_tries += 1
+
+		if resp.StatusCode == 200 {
+			Loop = false
+		}
+		return &StatusResponse{
+			StatusCode: resp.StatusCode,
+			Body:       data,
+		}, nil
+
+	}
+	return nil, fmt.Errorf("couldn't retrieve lobby data")
+}
+
 func Status() (*StatusResponse, error) {
 
 	Loop := true
@@ -324,7 +373,7 @@ func Status() (*StatusResponse, error) {
 		}
 		no_tries += 1
 
-		if resp.StatusCode == 200 {
+		if resp.StatusCode == http.StatusOK {
 			Loop = false
 		}
 		return &StatusResponse{
@@ -374,7 +423,7 @@ func main() {
 
 	menuLoop := true
 	for ok := true; ok; ok = menuLoop {
-		fmt.Printf("Wybierz opcję: \n start \nexit \nlobby")
+		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n")
 		userInp := getInput()
 		fmt.Println(userInp)
 		switch userInp {
@@ -383,7 +432,15 @@ func main() {
 		case "exit":
 			return
 		case "lobby":
+			lobby, err := getLobby()
+			if err != nil {
+				panic(err)
+			}
 			fmt.Println("Lobby: ")
+			for key, value := range lobby.Body {
+				fmt.Printf("%s: %v\n", key, value)
+			}
+
 		default:
 			fmt.Println("Spróbuj jeszcze raz")
 		}
