@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -344,9 +345,7 @@ func getLobby() (*StatusResponse, error) {
 
 		client := &DefaultHTTPClient{}
 
-		getHeaders := map[string]string{
-			"X-Auth-Token": gameProperties.Token,
-		}
+		getHeaders := map[string]string{}
 
 		//////
 		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/lobby", getHeaders)
@@ -436,7 +435,7 @@ func Status() (*StatusResponse, error) {
 }
 func getInput() string {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter input: ")
+	fmt.Print(">")
 	input, _ := reader.ReadString('\n')
 
 	cleanedInput := strings.ReplaceAll(input, "\n", "")
@@ -444,9 +443,25 @@ func getInput() string {
 	return cleanedInput
 }
 
-func getCoords() (string, error) {
+func isValidFormat(input string) bool {
+	validFormat := regexp.MustCompile(`^[a-j](?:10|[1-9])$`)
+	return validFormat.MatchString(input)
+}
 
-	return getInput(), nil
+func getCoords() (string, error) {
+	fmt.Println("Podaj kordynaty")
+	waitingLoop := true
+	for ok := true; ok; ok = waitingLoop {
+		userInput := strings.ToLower(getInput())
+		if isValidFormat(userInput) {
+			return userInput, nil
+			waitingLoop = false
+		} else {
+			fmt.Println("Błędne koordynaty, spróbuj jeszcze raz")
+		}
+	}
+
+	return "", nil
 }
 
 func main() {
