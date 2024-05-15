@@ -336,14 +336,19 @@ func Status() (*StatusResponse, error) {
 	return nil, fmt.Errorf("couldn't get status")
 
 }
-func getCoords() (string, error) {
+func getInput() string {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter input: ")
 	input, _ := reader.ReadString('\n')
-	// Remove '\n' and '\r' from the input
+
 	cleanedInput := strings.ReplaceAll(input, "\n", "")
 	cleanedInput = strings.ReplaceAll(cleanedInput, "\r", "")
-	return cleanedInput, nil
+	return cleanedInput
+}
+
+func getCoords() (string, error) {
+
+	return getInput(), nil
 }
 
 func main() {
@@ -366,6 +371,23 @@ func main() {
 	fmt.Printf("////////////")
 	key, value := GameStatus.Body["game_status"]
 	fmt.Printf("%s: %v\n", key, value)
+
+	menuLoop := true
+	for ok := true; ok; ok = menuLoop {
+		fmt.Printf("Wybierz opcję: \n start \nexit \nlobby")
+		userInp := getInput()
+		fmt.Println(userInp)
+		switch userInp {
+		case "start":
+			menuLoop = false
+		case "exit":
+			return
+		case "lobby":
+			fmt.Println("Lobby: ")
+		default:
+			fmt.Println("Spróbuj jeszcze raz")
+		}
+	}
 
 	//gameStatus := GameStatus.Body["game_status"]
 	waitingLoop := true
