@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	gui "github.com/grupawp/warships-lightgui/v2"
 )
 
@@ -187,8 +188,9 @@ func Board() ([]string, error) {
 //func Fire(coord string) (string, error)
 
 type GameProperties struct {
-	Token string
-	Board []string
+	Token        string
+	Board        []string
+	PlayerShoots []string
 }
 
 type HTTPClient interface {
@@ -469,12 +471,24 @@ func getCoords() (string, error) {
 }
 
 func main() {
+	//inicjalizacja
 	gameProperties.Board, _ = customBoard()
+
+	cfg := gui.NewConfig()
+	cfg.HitChar = '#'
+	cfg.HitColor = color.FgRed
+	cfg.BorderColor = color.BgRed
+	cfg.RulerTextColor = color.BgYellow
+	gui.New(cfg)
+
+	board := gui.New(cfg)
+
 	err := InitGame()
 	if err != nil {
 		panic(err)
 	}
 
+	//
 	fmt.Println("token: ", gameProperties.Token)
 	GameStatus, err := Status()
 	if err != nil {
@@ -491,7 +505,7 @@ func main() {
 
 	menuLoop := true
 	for ok := true; ok; ok = menuLoop {
-		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n|stats\n")
+		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n|stats\n|dbgboard\n")
 		userInp := getInput()
 		fmt.Println(userInp)
 		switch userInp {
@@ -517,6 +531,8 @@ func main() {
 			for key, value := range stats.Body {
 				fmt.Printf("%s: %v\n", key, value)
 			}
+		case "dbgboard":
+			board.Display()
 		default:
 			fmt.Println("Spróbuj jeszcze raz")
 		}
@@ -542,12 +558,14 @@ func main() {
 	}
 	//
 
-	board := gui.New(gui.NewConfig())
 	board.Display()
+
 	gameLoop := true
+
+	GameStatus, err = Status()
+
 	for ok := true; ok; ok = gameLoop {
 
-		GameStatus, err = Status()
 		if err != nil {
 			panic(err)
 		}
@@ -561,6 +579,7 @@ func main() {
 		//game status znika za 2 wykonaniem z jakiegos powodu
 
 		time.Sleep(1 * time.Second)
+		GameStatus, err = Status()
 
 	}
 
