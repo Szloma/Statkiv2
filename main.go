@@ -470,6 +470,10 @@ func getCoords() (string, error) {
 	return "", nil
 }
 
+func getLastFromSlice() string {
+	return ""
+}
+
 func main() {
 	//inicjalizacja
 	gameProperties.Board, _ = customBoard()
@@ -533,6 +537,9 @@ func main() {
 			}
 		case "dbgboard":
 			board.Display()
+		case "dbgboardimport":
+			board.Import(gameProperties.Board)
+			board.Display()
 		default:
 			fmt.Println("Spróbuj jeszcze raz")
 		}
@@ -558,21 +565,41 @@ func main() {
 	}
 	//
 
-	board.Display()
-
 	gameLoop := true
-
 	GameStatus, err = Status()
+
+	board.Import(gameProperties.Board)
+	board.Display()
 
 	for ok := true; ok; ok = gameLoop {
 
 		if err != nil {
 			panic(err)
 		}
+
+		fmt.Println(GameStatus.Body["timer"])
+
+		key := fmt.Sprintf("%s", GameStatus.Body["opp_shots"])
+		result := stringToSlice(key)
+		lastEnemyShot := result[len(result)-1]
+		_ = board.Set(gui.Left, lastEnemyShot, gui.Ship)
+		_, err := board.HitOrMiss(gui.Left, lastEnemyShot)
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		if GameStatus.Body["should_fire"] == true {
 			coord, _ := getCoords()
 			Fire(coord)
+
 			fmt.Println(GameStatus.Body["timer"])
+			_ = board.Set(gui.Right, coord, gui.Ship)
+			_, err := board.HitOrMiss(gui.Right, coord)
+			if err != nil {
+				fmt.Println(err)
+			}
+			board.Display()
+
 		}
 
 		fmt.Println(GameStatus.Body)
