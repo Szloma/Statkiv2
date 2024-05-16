@@ -12,7 +12,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	gui "github.com/grupawp/warships-lightgui/v2"
 )
+
+//zaimmplementować statystyke skuteczności strzałów
 
 var gameProperties GameProperties
 
@@ -237,7 +241,7 @@ func InitGame() error {
 		GameBoard := map[string]interface{}{
 			"coords":      gameProperties.Board,
 			"desc":        "Pierwsza gra",
-			"nick":        "Janusz",
+			"nick":        "BetonoJanusz",
 			"target_nick": "",
 			"wpbot":       true,
 		}
@@ -537,6 +541,9 @@ func main() {
 		time.Sleep(1 * time.Second)
 	}
 	//
+
+	board := gui.New(gui.NewConfig())
+	board.Display()
 	gameLoop := true
 	for ok := true; ok; ok = gameLoop {
 
