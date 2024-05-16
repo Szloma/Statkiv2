@@ -470,8 +470,11 @@ func getCoords() (string, error) {
 	return "", nil
 }
 
-func getLastFromSlice() string {
-	return ""
+func getLastFromSlice(s interface{}) string {
+
+	key := fmt.Sprintf("%s", s)
+	result := stringToSlice(key)
+	return result[len(result)-1]
 }
 
 func main() {
@@ -582,6 +585,7 @@ func main() {
 		key := fmt.Sprintf("%s", GameStatus.Body["opp_shots"])
 		result := stringToSlice(key)
 		lastEnemyShot := result[len(result)-1]
+		//lastEnemyShot := getLastFromSlice(GameStatus.Body["opp_shots"])
 		_ = board.Set(gui.Left, lastEnemyShot, gui.Ship)
 		_, err := board.HitOrMiss(gui.Left, lastEnemyShot)
 		if err != nil {
@@ -602,7 +606,7 @@ func main() {
 
 		}
 
-		fmt.Println(GameStatus.Body)
+		fmt.Println("gamestatus: ", GameStatus.Body)
 		//game status znika za 2 wykonaniem z jakiegos powodu
 
 		time.Sleep(1 * time.Second)
