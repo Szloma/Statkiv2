@@ -95,9 +95,7 @@ func Fire(coord string) (string, error) {
 			// fmt.Println("Failed to read POST response body:", err)
 			fmt.Errorf("Failed to read POST response body", err)
 		}
-		fmt.Println("POST Response:")
-		fmt.Println(string(postResponseBody))
-		gameProperties.Token = token
+
 
 		var data map[string]interface{}
 
