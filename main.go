@@ -126,8 +126,6 @@ func Fire(coord string) (string, error) {
 		}
 		no_tries += 1
 
-		gameProperties.PlayerShoots = AddIfNotPresent(gameProperties.PlayerShoots, coord)
-
 		return result, nil
 
 	}
@@ -219,6 +217,18 @@ type StatusResponse struct {
 // http
 type DefaultHTTPClient struct{}
 
+func (c *DefaultHTTPClient) Delete(url string, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	return http.DefaultClient.Do(req)
+}
+
 func (c *DefaultHTTPClient) Get(url string, headers map[string]string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -242,6 +252,54 @@ func (c *DefaultHTTPClient) Post(url string, bodyType string, body []byte, heade
 	}
 
 	return http.DefaultClient.Do(req)
+}
+
+func DeleteGame() (*StatusResponse, error) {
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+
+		client := &DefaultHTTPClient{}
+
+		getHeaders := map[string]string{
+			"X-Auth-Token": gameProperties.Token,
+		}
+
+		//////
+		resp, err := client.Delete("https://go-pjatk-server.fly.dev/api/game/abandon", getHeaders)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		var data map[string]interface{}
+
+		err = json.Unmarshal([]byte(body), &data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response")
+		}
+
+		if no_tries == 3 {
+			Loop = false
+			return nil, fmt.Errorf("couldn't retrieve lobby data")
+		}
+		no_tries += 1
+
+		if resp.StatusCode == 200 {
+			Loop = false
+		}
+		return &StatusResponse{
+			StatusCode: resp.StatusCode,
+			Body:       data,
+		}, nil
+
+	}
+	return nil, fmt.Errorf("couldn't retrieve lobby data")
 }
 
 func InitGame() error {
@@ -611,21 +669,52 @@ func main() {
 		if playerShipHit == gui.Miss {
 			_ = board.Set(gui.Left, lastEnemyShot, gui.Miss)
 		}
+		if playerShipHit == gui.Ship {
+			_ = board.Set(gui.Left, lastEnemyShot, gui.Hit)
+		}
 
 		if GameStatus.Body["should_fire"] == true {
-			coord, _ := getCoords()
 
-			fireStatus, _ := Fire(coord)
+			sumbenuLoop := true
+			for ok := true; ok; ok = sumbenuLoop {
+				fmt.Printf("shoot|abandon|status")
+				userInp := getInput()
+				fmt.Println(userInp)
+				switch userInp {
+				case "shoot":
 
-			fmt.Println(GameStatus.Body["timer"])
-			if fireStatus == "hit" {
-				_ = board.Set(gui.Right, coord, gui.Hit)
+					coord, _ := getCoords()
+
+					fireStatus, err := Fire(coord)
+					if err == nil {
+						gameProperties.PlayerShoots = AddIfNotPresent(gameProperties.PlayerShoots, coord)
+					}
+
+					fmt.Println(GameStatus.Body["timer"])
+					if fireStatus == "hit" {
+						_ = board.Set(gui.Right, coord, gui.Hit)
+					}
+					if fireStatus == "miss" {
+						_ = board.Set(gui.Right, coord, gui.Miss)
+					}
+
+					board.Display()
+
+					sumbenuLoop = false
+				case "abandon":
+					DeleteGame()
+					gameLoop = false
+					sumbenuLoop = false
+					//fmt.Println("abandonStatus: ", AbandonStatus.Body)
+					//fmt.Println("abanndonerr: ", err)
+
+				case "status":
+					GameStatus, err = Status()
+					fmt.Println("gamestatus: ", GameStatus.Body)
+				default:
+					fmt.Println("Spróbuj jeszcze raz")
+				}
 			}
-			if fireStatus == "miss" {
-				_ = board.Set(gui.Right, coord, gui.Miss)
-			}
-
-			board.Display()
 
 		}
 		fmt.Println("playerShots", gameProperties.PlayerShoots)
