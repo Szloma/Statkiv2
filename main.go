@@ -19,6 +19,28 @@ import (
 
 //zaimmplementować statystyke skuteczności strzałów
 
+//------------------------------------------
+//game properties
+
+type GameProperties struct {
+	Token        string
+	Board        []string
+	PlayerShoots []string
+	Enemy        string
+}
+
+var gameProperties GameProperties
+
+//------------------------------------------
+//utils
+
+func AddIfNotPresent(slice []string, value string) []string {
+	if !Contains(slice, value) {
+		slice = append(slice, value)
+	}
+	return slice
+}
+
 func Contains(slice []string, value string) bool {
 	for _, v := range slice {
 		if v == value {
@@ -27,14 +49,115 @@ func Contains(slice []string, value string) bool {
 	}
 	return false
 }
-func AddIfNotPresent(slice []string, value string) []string {
-	if !Contains(slice, value) {
-		slice = append(slice, value)
+
+func getCoords() (string, error) {
+	fmt.Println("Podaj kordynaty")
+	waitingLoop := true
+	for ok := true; ok; ok = waitingLoop {
+		userInput := strings.ToLower(getInput())
+		if isValidFormat(userInput) {
+			if !Contains(gameProperties.PlayerShoots, userInput) {
+				return userInput, nil
+				waitingLoop = false
+			}
+
+		} else {
+			fmt.Println("Błędne koordynaty, spróbuj jeszcze raz")
+		}
 	}
-	return slice
+
+	return "", nil
 }
 
-var gameProperties GameProperties
+func getInput() string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(">")
+	input, _ := reader.ReadString('\n')
+
+	cleanedInput := strings.ReplaceAll(input, "\n", "")
+	cleanedInput = strings.ReplaceAll(cleanedInput, "\r", "")
+	return cleanedInput
+}
+
+func getLastFromSlice(s interface{}) string {
+
+	key := fmt.Sprintf("%s", s)
+	result := stringToSlice(key)
+	return result[len(result)-1]
+}
+
+func isValidFormat(input string) bool {
+	validFormat := regexp.MustCompile(`^[a-j](?:10|[1-9])$`)
+	return validFormat.MatchString(input)
+}
+
+func stringToSlice(inp string) []string {
+	inp = strings.Replace(inp, "[", "", -1)
+	inp = strings.Replace(inp, "]", "", -1)
+	s := strings.Split(inp, " ")
+	return s
+}
+
+//------------------------------------------
+//Main game functions
+
+func Board() ([]string, error) {
+
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+		client := &DefaultHTTPClient{}
+
+		getHeaders := map[string]string{
+			"X-Auth-Token": gameProperties.Token,
+		}
+
+		//////
+		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/game/board", getHeaders)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			fmt.Printf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
+
+			return nil, fmt.Errorf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
+		}
+		if resp.StatusCode == http.StatusOK {
+			Loop = false
+		}
+		var data map[string]interface{}
+
+		err = json.Unmarshal([]byte(body), &data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response")
+		}
+		key := fmt.Sprintf("%s", data["board"])
+		result := stringToSlice(key)
+		if len(result) != 20 {
+			fmt.Printf("Not enough pieces")
+			return nil, fmt.Errorf("Not enough pieces")
+		}
+		fmt.Println("%d", len(result))
+
+		if no_tries == 3 {
+			Loop = false
+			return nil, fmt.Errorf("Couldn't retrieve board")
+		}
+		no_tries += 1
+
+		return result, nil
+
+	}
+	return nil, fmt.Errorf("Couldn't retrieve board")
+
+}
 
 func customBoard() ([]string, error) {
 	return []string{
@@ -131,127 +254,6 @@ func Fire(coord string) (string, error) {
 	}
 	return "", nil
 
-}
-
-func stringToSlice(inp string) []string {
-	inp = strings.Replace(inp, "[", "", -1)
-	inp = strings.Replace(inp, "]", "", -1)
-	s := strings.Split(inp, " ")
-	return s
-}
-func Board() ([]string, error) {
-
-	Loop := true
-	no_tries := 0
-	for ok := true; ok; ok = Loop {
-		client := &DefaultHTTPClient{}
-
-		getHeaders := map[string]string{
-			"X-Auth-Token": gameProperties.Token,
-		}
-
-		//////
-		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/game/board", getHeaders)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			fmt.Printf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
-
-			return nil, fmt.Errorf("unexpected status: %d, %s", resp.StatusCode, resp.Header.Get("message"))
-		}
-		if resp.StatusCode == http.StatusOK {
-			Loop = false
-		}
-		var data map[string]interface{}
-
-		err = json.Unmarshal([]byte(body), &data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal response")
-		}
-		key := fmt.Sprintf("%s", data["board"])
-		result := stringToSlice(key)
-		if len(result) != 20 {
-			fmt.Printf("Not enough pieces")
-			return nil, fmt.Errorf("Not enough pieces")
-		}
-		fmt.Println("%d", len(result))
-
-		if no_tries == 3 {
-			Loop = false
-			return nil, fmt.Errorf("Couldn't retrieve board")
-		}
-		no_tries += 1
-
-		return result, nil
-
-	}
-	return nil, fmt.Errorf("Couldn't retrieve board")
-
-}
-
-//func Fire(coord string) (string, error)
-
-type GameProperties struct {
-	Token        string
-	Board        []string
-	PlayerShoots []string
-}
-
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-type StatusResponse struct {
-	StatusCode int
-	Body       map[string]interface{}
-}
-
-// http
-type DefaultHTTPClient struct{}
-
-func (c *DefaultHTTPClient) Delete(url string, headers map[string]string) (*http.Response, error) {
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
-
-	return http.DefaultClient.Do(req)
-}
-
-func (c *DefaultHTTPClient) Get(url string, headers map[string]string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
-
-	return http.DefaultClient.Do(req)
-}
-
-func (c *DefaultHTTPClient) Post(url string, bodyType string, body []byte, headers map[string]string) (*http.Response, error) {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", bodyType)
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
-
-	return http.DefaultClient.Do(req)
 }
 
 func DeleteGame() (*StatusResponse, error) {
@@ -364,6 +366,58 @@ func InitGame() error {
 	}
 	return nil
 
+}
+
+func PlayerList() (*StatusResponse, error) {
+
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+
+		client := &DefaultHTTPClient{}
+
+		getHeaders := map[string]string{}
+
+		//////
+		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/lobby", getHeaders)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(body) == 2 {
+			Loop = false
+			return nil, nil
+		} else {
+			var data map[string]interface{}
+
+			err = json.Unmarshal([]byte(body), &data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshall list of available players")
+			}
+
+			if no_tries == 3 {
+				Loop = false
+				return nil, fmt.Errorf("couldn't get list of available players")
+			}
+
+			if resp.StatusCode == http.StatusOK {
+				Loop = false
+			}
+			no_tries += 1
+			return &StatusResponse{
+				StatusCode: resp.StatusCode,
+				Body:       data,
+			}, nil
+		}
+
+	}
+	return nil, fmt.Errorf("couldn't get list of available players")
 }
 
 func getStats() (*StatusResponse, error) {
@@ -560,45 +614,53 @@ func Status() (*StatusResponse, error) {
 	return nil, fmt.Errorf("couldn't get status")
 
 }
-func getInput() string {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print(">")
-	input, _ := reader.ReadString('\n')
 
-	cleanedInput := strings.ReplaceAll(input, "\n", "")
-	cleanedInput = strings.ReplaceAll(cleanedInput, "\r", "")
-	return cleanedInput
+// ---------------------
+// http client and methods
+type DefaultHTTPClient struct{}
+type StatusResponse struct {
+	StatusCode int
+	Body       map[string]interface{}
 }
 
-func isValidFormat(input string) bool {
-	validFormat := regexp.MustCompile(`^[a-j](?:10|[1-9])$`)
-	return validFormat.MatchString(input)
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
-func getCoords() (string, error) {
-	fmt.Println("Podaj kordynaty")
-	waitingLoop := true
-	for ok := true; ok; ok = waitingLoop {
-		userInput := strings.ToLower(getInput())
-		if isValidFormat(userInput) {
-			if !Contains(gameProperties.PlayerShoots, userInput) {
-				return userInput, nil
-				waitingLoop = false
-			}
-
-		} else {
-			fmt.Println("Błędne koordynaty, spróbuj jeszcze raz")
-		}
+func (c *DefaultHTTPClient) Get(url string, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 
-	return "", nil
+	return http.DefaultClient.Do(req)
 }
 
-func getLastFromSlice(s interface{}) string {
+func (c *DefaultHTTPClient) Post(url string, bodyType string, body []byte, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", bodyType)
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 
-	key := fmt.Sprintf("%s", s)
-	result := stringToSlice(key)
-	return result[len(result)-1]
+	return http.DefaultClient.Do(req)
+}
+func (c *DefaultHTTPClient) Delete(url string, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	return http.DefaultClient.Do(req)
 }
 
 func main() {
@@ -636,7 +698,7 @@ func main() {
 
 	menuLoop := true
 	for ok := true; ok; ok = menuLoop {
-		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n|stats\n")
+		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n|stats\n|players|\n")
 		userInp := getInput()
 		fmt.Println(userInp)
 		switch userInp {
@@ -662,6 +724,18 @@ func main() {
 			for key, value := range stats.Body {
 				fmt.Printf("%s: %v\n", key, value)
 			}
+		case "players":
+			playerlist, err := PlayerList()
+			if err != nil {
+				panic(err)
+			}
+			if playerlist != nil {
+				fmt.Printf("players: ", playerlist.Body)
+
+			} else {
+				fmt.Print("no available players\n")
+			}
+
 		default:
 			fmt.Println("Spróbuj jeszcze raz")
 		}
@@ -703,6 +777,7 @@ func main() {
 
 		key := fmt.Sprintf("%s", GameStatus.Body["opp_shots"])
 		result := stringToSlice(key)
+
 		lastEnemyShot := result[len(result)-1]
 		//lastEnemyShot := getLastFromSlice(GameStatus.Body["opp_shots"])
 
@@ -712,9 +787,6 @@ func main() {
 		}
 		if playerShipHit == gui.Miss {
 			_ = board.Set(gui.Left, lastEnemyShot, gui.Miss)
-		}
-		if playerShipHit == gui.Ship {
-			_ = board.Set(gui.Left, lastEnemyShot, gui.Hit)
 		}
 
 		if GameStatus.Body["should_fire"] == true {
@@ -767,9 +839,9 @@ func main() {
 			}
 
 		}
+
 		fmt.Println("playerShots", gameProperties.PlayerShoots)
 		fmt.Println("gamestatus: ", GameStatus.Body)
-		//game status znika za 2 wykonaniem z jakiegos powodu
 
 		time.Sleep(1 * time.Second)
 		GameStatus, err = Status()
