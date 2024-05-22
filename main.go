@@ -462,6 +462,55 @@ func getLobby() (*StatusResponse, error) {
 	return nil, fmt.Errorf("couldn't retrieve lobby data")
 }
 
+func GameDescription() (*StatusResponse, error) {
+
+	Loop := true
+	no_tries := 0
+	for ok := true; ok; ok = Loop {
+
+		client := &DefaultHTTPClient{}
+
+		getHeaders := map[string]string{
+			"X-Auth-Token": gameProperties.Token,
+		}
+
+		//////
+		resp, err := client.Get("https://go-pjatk-server.fly.dev/api/game/desc", getHeaders)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		var data map[string]interface{}
+
+		err = json.Unmarshal([]byte(body), &data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal description response")
+		}
+
+		if no_tries == 3 {
+			Loop = false
+			return nil, fmt.Errorf("couldn't get game description")
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			Loop = false
+		}
+		no_tries += 1
+		return &StatusResponse{
+			StatusCode: resp.StatusCode,
+			Body:       data,
+		}, nil
+
+	}
+	return nil, fmt.Errorf("couldn't get game description")
+}
+
 func Status() (*StatusResponse, error) {
 
 	Loop := true
@@ -587,7 +636,7 @@ func main() {
 
 	menuLoop := true
 	for ok := true; ok; ok = menuLoop {
-		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n|stats\n|dbgboard\n")
+		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n|stats\n")
 		userInp := getInput()
 		fmt.Println(userInp)
 		switch userInp {
@@ -613,11 +662,6 @@ func main() {
 			for key, value := range stats.Body {
 				fmt.Printf("%s: %v\n", key, value)
 			}
-		case "dbgboard":
-			board.Display()
-		case "dbgboardimport":
-			board.Import(gameProperties.Board)
-			board.Display()
 		default:
 			fmt.Println("Spróbuj jeszcze raz")
 		}
@@ -677,7 +721,7 @@ func main() {
 
 			sumbenuLoop := true
 			for ok := true; ok; ok = sumbenuLoop {
-				fmt.Printf("shoot|abandon|status")
+				fmt.Printf("shoot|abandon|status|description")
 				userInp := getInput()
 				fmt.Println(userInp)
 				switch userInp {
@@ -711,6 +755,12 @@ func main() {
 				case "status":
 					GameStatus, err = Status()
 					fmt.Println("gamestatus: ", GameStatus.Body)
+				case "description":
+					GameDescription, err := GameDescription()
+					if err != nil {
+						panic(err)
+					}
+					fmt.Println("GameDescription: ", GameDescription.Body)
 				default:
 					fmt.Println("Spróbuj jeszcze raz")
 				}
