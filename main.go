@@ -19,6 +19,21 @@ import (
 
 //zaimmplementować statystyke skuteczności strzałów
 
+func Contains(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+func AddIfNotPresent(slice []string, value string) []string {
+	if !Contains(slice, value) {
+		slice = append(slice, value)
+	}
+	return slice
+}
+
 var gameProperties GameProperties
 
 func customBoard() ([]string, error) {
@@ -96,7 +111,6 @@ func Fire(coord string) (string, error) {
 			fmt.Errorf("Failed to read POST response body", err)
 		}
 
-
 		var data map[string]interface{}
 
 		err = json.Unmarshal([]byte(postResponseBody), &data)
@@ -104,7 +118,7 @@ func Fire(coord string) (string, error) {
 			return "", fmt.Errorf("failed to unmarshal response")
 		}
 		result := fmt.Sprintf("%s", data["result"])
-		fmt.Println(result)
+		//fmt.Println(result)
 
 		if no_tries == 3 {
 			Loop = false
@@ -112,7 +126,9 @@ func Fire(coord string) (string, error) {
 		}
 		no_tries += 1
 
-		return result, fmt.Errorf("couldn't perform fire request")
+		gameProperties.PlayerShoots = AddIfNotPresent(gameProperties.PlayerShoots, coord)
+
+		return result, nil
 
 	}
 	return "", nil
@@ -458,8 +474,11 @@ func getCoords() (string, error) {
 	for ok := true; ok; ok = waitingLoop {
 		userInput := strings.ToLower(getInput())
 		if isValidFormat(userInput) {
-			return userInput, nil
-			waitingLoop = false
+			if !Contains(gameProperties.PlayerShoots, userInput) {
+				return userInput, nil
+				waitingLoop = false
+			}
+
 		} else {
 			fmt.Println("Błędne koordynaty, spróbuj jeszcze raz")
 		}
@@ -584,26 +603,32 @@ func main() {
 		result := stringToSlice(key)
 		lastEnemyShot := result[len(result)-1]
 		//lastEnemyShot := getLastFromSlice(GameStatus.Body["opp_shots"])
-		_ = board.Set(gui.Left, lastEnemyShot, gui.Ship)
-		_, err := board.HitOrMiss(gui.Left, lastEnemyShot)
-		if err != nil {
-			fmt.Println(err)
+
+		playerShipHit, _ := board.HitOrMiss(gui.Left, lastEnemyShot)
+		if playerShipHit == gui.Hit {
+			_ = board.Set(gui.Left, lastEnemyShot, gui.Hit)
+		}
+		if playerShipHit == gui.Miss {
+			_ = board.Set(gui.Left, lastEnemyShot, gui.Miss)
 		}
 
 		if GameStatus.Body["should_fire"] == true {
 			coord, _ := getCoords()
-			Fire(coord)
+
+			fireStatus, _ := Fire(coord)
 
 			fmt.Println(GameStatus.Body["timer"])
-			_ = board.Set(gui.Right, coord, gui.Ship)
-			_, err := board.HitOrMiss(gui.Right, coord)
-			if err != nil {
-				fmt.Println(err)
+			if fireStatus == "hit" {
+				_ = board.Set(gui.Right, coord, gui.Hit)
 			}
+			if fireStatus == "miss" {
+				_ = board.Set(gui.Right, coord, gui.Miss)
+			}
+
 			board.Display()
 
 		}
-
+		fmt.Println("playerShots", gameProperties.PlayerShoots)
 		fmt.Println("gamestatus: ", GameStatus.Body)
 		//game status znika za 2 wykonaniem z jakiegos powodu
 
