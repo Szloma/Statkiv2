@@ -27,6 +27,8 @@ type GameProperties struct {
 	Board        []string
 	PlayerShoots []string
 	Enemy        string
+	Nick         string
+	Description  string
 }
 
 var gameProperties GameProperties
@@ -316,8 +318,8 @@ func InitGame() error {
 		}
 		GameBoard := map[string]interface{}{
 			"coords":      gameProperties.Board,
-			"desc":        "Pierwsza gra",
-			"nick":        "BetonoJanusz",
+			"desc":        gameProperties.Description,
+			"nick":        gameProperties.Nick,
 			"target_nick": "",
 			"wpbot":       true,
 		}
@@ -665,6 +667,31 @@ func (c *DefaultHTTPClient) Delete(url string, headers map[string]string) (*http
 
 func main() {
 	//inicjalizacja
+
+	gameProperties.Nick = "BetonJanusz"
+	gameProperties.Description = ""
+
+	subsubmenuLoop := true
+	for ok := true; ok; ok = subsubmenuLoop {
+		fmt.Printf("\nWP warships game\n")
+		fmt.Println("---------------------")
+		fmt.Printf("Set your name and description:\n|start\n|name\n|desc\n|exit\n")
+		userInp := getInput()
+		fmt.Println(userInp)
+		switch userInp {
+		case "start":
+			subsubmenuLoop = false
+		case "name":
+			gameProperties.Nick = getInput()
+		case "desc":
+			gameProperties.Description = getInput()
+		case "exit":
+			return
+		default:
+			fmt.Println("Spróbuj jeszcze raz")
+		}
+	}
+
 	gameProperties.Board, _ = customBoard()
 
 	cfg := gui.NewConfig()
@@ -682,7 +709,7 @@ func main() {
 	}
 
 	//
-	fmt.Println("token: ", gameProperties.Token)
+	//fmt.Println("token: ", gameProperties.Token)
 	GameStatus, err := Status()
 	if err != nil {
 		panic(err)
@@ -692,29 +719,23 @@ func main() {
 	for key, value := range GameStatus.Body {
 		fmt.Printf("%s: %v\n", key, value)
 	}
-	fmt.Printf("////////////")
-	key, value := GameStatus.Body["game_status"]
-	fmt.Printf("%s: %v\n", key, value)
+	//fmt.Printf("////////////")
+	//key, value := GameStatus.Body["game_status"]
+	//fmt.Printf("%s: %v\n", key, value)
 
 	menuLoop := true
 	for ok := true; ok; ok = menuLoop {
-		fmt.Printf("Wybierz opcję: \n|start \n|exit \n|lobby\n|stats\n|players|\n")
+		fmt.Printf("\nWP warships game\n")
+		fmt.Println("---------------------")
+		fmt.Printf("Type in your option:\n|start\n|stats\n|players\nexit\n")
 		userInp := getInput()
-		fmt.Println(userInp)
+		//fmt.Println(userInp)
 		switch userInp {
 		case "start":
 			menuLoop = false
 		case "exit":
 			return
-		case "lobby":
-			lobby, err := getLobby()
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println("Lobby: ")
-			for key, value := range lobby.Body {
-				fmt.Printf("%s: %v\n", key, value)
-			}
+
 		case "stats":
 			stats, err := getStats()
 			if err != nil {
@@ -777,23 +798,21 @@ func main() {
 
 		key := fmt.Sprintf("%s", GameStatus.Body["opp_shots"])
 		result := stringToSlice(key)
-
 		lastEnemyShot := result[len(result)-1]
 		//lastEnemyShot := getLastFromSlice(GameStatus.Body["opp_shots"])
 
 		playerShipHit, _ := board.HitOrMiss(gui.Left, lastEnemyShot)
-		if playerShipHit == gui.Hit {
-			_ = board.Set(gui.Left, lastEnemyShot, gui.Hit)
-		}
 		if playerShipHit == gui.Miss {
 			_ = board.Set(gui.Left, lastEnemyShot, gui.Miss)
+		} else {
+			_ = board.Set(gui.Left, lastEnemyShot, gui.Hit)
 		}
 
 		if GameStatus.Body["should_fire"] == true {
 
 			sumbenuLoop := true
 			for ok := true; ok; ok = sumbenuLoop {
-				fmt.Printf("shoot|abandon|status|description")
+				fmt.Printf("shoot|abandon|status|desc")
 				userInp := getInput()
 				fmt.Println(userInp)
 				switch userInp {
@@ -806,7 +825,6 @@ func main() {
 						gameProperties.PlayerShoots = AddIfNotPresent(gameProperties.PlayerShoots, coord)
 					}
 
-					fmt.Println(GameStatus.Body["timer"])
 					if fireStatus == "hit" {
 						_ = board.Set(gui.Right, coord, gui.Hit)
 					}
@@ -821,18 +839,16 @@ func main() {
 					DeleteGame()
 					gameLoop = false
 					sumbenuLoop = false
-					//fmt.Println("abandonStatus: ", AbandonStatus.Body)
-					//fmt.Println("abanndonerr: ", err)
 
 				case "status":
 					GameStatus, err = Status()
 					fmt.Println("gamestatus: ", GameStatus.Body)
-				case "description":
+				case "desc":
 					GameDescription, err := GameDescription()
 					if err != nil {
 						panic(err)
 					}
-					fmt.Println("GameDescription: ", GameDescription.Body)
+					fmt.Println("Enemy description: ", GameDescription.Body["opp_desc"])
 				default:
 					fmt.Println("Spróbuj jeszcze raz")
 				}
@@ -840,17 +856,14 @@ func main() {
 
 		}
 
-		fmt.Println("playerShots", gameProperties.PlayerShoots)
-		fmt.Println("gamestatus: ", GameStatus.Body)
-
+		//fmt.Println("playerShots", gameProperties.PlayerShoots)
+		//fmt.Println("gamestatus: ", GameStatus.Body)
+		//fmt.Println("timer: ", GameStatus.Body["timer"])
 		time.Sleep(1 * time.Second)
 		GameStatus, err = Status()
 
 	}
 
-	key, err = Board()
-	str := key
-	fmt.Println(str)
 	//Board()
 
 }
